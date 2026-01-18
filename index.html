@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundScript Mapper | Sateré-Mawé</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0a0a0b;
+            color: #f5f5f7;
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        header { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid #2a2a2e; }
+        h1 { font-size: 1.75rem; margin-bottom: 0.25rem; }
+        .subtitle { color: #a1a1a6; }
+        
+        .stats { display: flex; gap: 2rem; margin-top: 1rem; flex-wrap: wrap; }
+        .stat { display: flex; align-items: center; gap: 0.5rem; }
+        .stat-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .stat-dot.morpheme { background: #34c759; }
+        .stat-dot.syllable { background: #5e5ce6; }
+        .stat-dot.noise { background: #ff6b6b; }
+        .stat-dot.unclear { background: #ff9f0a; }
+        .stat-dot.pending { background: #6e6e73; }
+        .stat-count { font-weight: 600; font-family: monospace; }
+        
+        .progress-bar { width: 100%; height: 6px; background: #1a1a1e; border-radius: 3px; margin-top: 1rem; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #34c759, #0a84ff); border-radius: 3px; transition: width 0.3s; }
+        
+        .main-grid { display: grid; grid-template-columns: 280px 1fr; gap: 1.5rem; }
+        @media (max-width: 800px) { .main-grid { grid-template-columns: 1fr; } }
+        
+        .motif-list { background: #141416; border-radius: 12px; border: 1px solid #2a2a2e; max-height: 70vh; overflow: hidden; display: flex; flex-direction: column; }
+        .motif-list-header { padding: 1rem; border-bottom: 1px solid #2a2a2e; font-weight: 600; font-size: 0.875rem; color: #a1a1a6; text-transform: uppercase; }
+        .motif-list-scroll { overflow-y: auto; flex: 1; }
+        .motif-item { padding: 0.75rem 1rem; border-bottom: 1px solid #2a2a2e; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; }
+        .motif-item:hover { background: #1a1a1e; }
+        .motif-item.active { background: #1a1a1e; border-left: 3px solid #0a84ff; }
+        .motif-id { font-family: monospace; font-weight: 500; min-width: 45px; }
+        .motif-status { width: 8px; height: 8px; border-radius: 50%; }
+        .motif-preview { font-size: 0.875rem; color: #a1a1a6; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .motif-preview.has-content { color: #f5f5f7; font-style: italic; }
+        .motif-count { font-size: 0.75rem; color: #6e6e73; font-family: monospace; }
+        
+        .editor { background: #141416; border-radius: 12px; border: 1px solid #2a2a2e; }
+        .editor-header { padding: 1.25rem; border-bottom: 1px solid #2a2a2e; background: #1a1a1e; border-radius: 12px 12px 0 0; }
+        .editor-title { font-family: monospace; font-size: 1.5rem; font-weight: 600; }
+        .editor-meta { font-size: 0.875rem; color: #a1a1a6; margin-top: 0.25rem; }
+        .editor-body { padding: 1.25rem; }
+        
+        .section-label { font-size: 0.75rem; font-weight: 600; color: #6e6e73; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+        .audio-section { margin-bottom: 1.5rem; }
+        .audio-samples { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .audio-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.625rem 1rem; background: #1a1a1e; border: 1px solid #2a2a2e; border-radius: 8px; color: #f5f5f7; font-size: 0.875rem; cursor: pointer; }
+        .audio-btn:hover { background: #242428; border-color: #0a84ff; }
+        .audio-btn.playing { background: #0a84ff; border-color: #0a84ff; }
+        
+        .form-group { margin-bottom: 1.25rem; }
+        .form-label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.375rem; color: #a1a1a6; }
+        .form-input { width: 100%; padding: 0.75rem; background: #1a1a1e; border: 1px solid #2a2a2e; border-radius: 8px; color: #f5f5f7; font-size: 1rem; }
+        .form-input:focus { outline: none; border-color: #0a84ff; }
+        textarea.form-input { min-height: 80px; resize: vertical; }
+        
+        .category-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+        .category-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: #1a1a1e; border: 2px solid #2a2a2e; border-radius: 8px; color: #f5f5f7; font-size: 0.875rem; cursor: pointer; text-align: left; }
+        .category-btn:hover { background: #242428; }
+        .category-btn.selected.morpheme { border-color: #34c759; background: rgba(52,199,89,0.1); }
+        .category-btn.selected.syllable { border-color: #5e5ce6; background: rgba(94,92,230,0.1); }
+        .category-btn.selected.noise { border-color: #ff6b6b; background: rgba(255,107,107,0.1); }
+        .category-btn.selected.unclear { border-color: #ff9f0a; background: rgba(255,159,10,0.1); }
+        .category-icon { width: 24px; height: 24px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.875rem; }
+        .category-btn.morpheme .category-icon { background: rgba(52,199,89,0.2); }
+        .category-btn.syllable .category-icon { background: rgba(94,92,230,0.2); }
+        .category-btn.noise .category-icon { background: rgba(255,107,107,0.2); }
+        .category-btn.unclear .category-icon { background: rgba(255,159,10,0.2); }
+        
+        .action-bar { display: flex; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #2a2a2e; flex-wrap: wrap; }
+        .btn { padding: 0.75rem 1.25rem; border-radius: 8px; font-size: 0.875rem; font-weight: 600; cursor: pointer; border: none; }
+        .btn-primary { background: #0a84ff; color: white; }
+        .btn-primary:hover { background: #0077ed; }
+        .btn-secondary { background: #1a1a1e; color: #f5f5f7; border: 1px solid #2a2a2e; }
+        .btn-secondary:hover { background: #242428; }
+        
+        .export-section { margin-top: 1.5rem; padding: 1.25rem; background: #141416; border-radius: 12px; border: 1px solid #2a2a2e; }
+        .export-title { font-weight: 600; margin-bottom: 0.75rem; }
+        .export-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        
+        .keyboard-hint { font-size: 0.75rem; color: #6e6e73; margin-top: 0.5rem; }
+        kbd { padding: 0.125rem 0.375rem; background: #1a1a1e; border: 1px solid #2a2a2e; border-radius: 4px; font-family: monospace; font-size: 0.6875rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔊 SoundScript Mapper</h1>
+            <div class="subtitle">Sateré-Mawé · 100 motifs from 45 hours of audio</div>
+            <div class="stats">
+                <div class="stat"><div class="stat-dot morpheme"></div><span>Morphemes</span><span class="stat-count" id="statMorpheme">0</span></div>
+                <div class="stat"><div class="stat-dot syllable"></div><span>Syllables</span><span class="stat-count" id="statSyllable">0</span></div>
+                <div class="stat"><div class="stat-dot noise"></div><span>Noise</span><span class="stat-count" id="statNoise">0</span></div>
+                <div class="stat"><div class="stat-dot unclear"></div><span>Unclear</span><span class="stat-count" id="statUnclear">0</span></div>
+                <div class="stat"><div class="stat-dot pending"></div><span>Pending</span><span class="stat-count" id="statPending">0</span></div>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        </header>
+        
+        <div class="main-grid">
+            <div class="motif-list">
+                <div class="motif-list-header">Motifs (by frequency)</div>
+                <div class="motif-list-scroll" id="motifList"></div>
+            </div>
+            <div class="editor">
+                <div class="editor-header">
+                    <div class="editor-title" id="editorTitle">Select a motif</div>
+                    <div class="editor-meta" id="editorMeta">Click a motif from the list to begin</div>
+                </div>
+                <div class="editor-body" id="editorBody">
+                    <p style="color:#6e6e73;text-align:center;padding:3rem;">👈 Select a motif to start mapping</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="export-section">
+            <div class="export-title">Export Mapping Data</div>
+            <div class="export-buttons">
+                <button class="btn btn-secondary" onclick="exportJson()">📄 JSON</button>
+                <button class="btn btn-secondary" onclick="exportCsv()">📊 CSV</button>
+                <button class="btn btn-secondary" onclick="exportSummary()">📋 Summary</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="soundscript_data.js"></script>
+    <script>
+        let motifs = MOTIF_DATA;
+        let mappings = JSON.parse(localStorage.getItem('soundscript_mappings_v2') || '{}');
+        let currentIndex = -1;
+        let currentAudio = null;
+        
+        function init() {
+            renderList();
+            updateStats();
+            document.addEventListener('keydown', handleKeys);
+        }
+        
+        function renderList() {
+            const list = document.getElementById('motifList');
+            list.innerHTML = motifs.map((m, i) => {
+                const map = mappings[m.id] || {};
+                const status = map.category || 'pending';
+                const preview = map.transcription || (map.category === 'noise' ? '[noise]' : '');
+                return \`<div class="motif-item \${i === currentIndex ? 'active' : ''}" onclick="selectMotif(\${i})">
+                    <div class="motif-status stat-dot \${status}"></div>
+                    <div class="motif-id">\${m.symbol}</div>
+                    <div class="motif-preview \${preview ? 'has-content' : ''}">\${preview || 'unmapped'}</div>
+                    <div class="motif-count">\${(m.count/1000).toFixed(0)}k</div>
+                </div>\`;
+            }).join('');
+        }
+        
+        function selectMotif(i) {
+            currentIndex = i;
+            const m = motifs[i];
+            const map = mappings[m.id] || {};
+            
+            document.getElementById('editorTitle').textContent = m.symbol;
+            document.getElementById('editorMeta').textContent = \`\${m.count.toLocaleString()} occurrences · \${m.samples.length} samples\`;
+            
+            document.getElementById('editorBody').innerHTML = \`
+                <div class="audio-section">
+                    <div class="section-label">Audio Samples</div>
+                    <div class="audio-samples">
+                        \${m.samples.map((s, j) => \`<button class="audio-btn" id="audio\${j}" onclick="playAudio('\${s}', \${j})">▶ Sample \${j+1}</button>\`).join('')}
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">What do you hear? (Sateré orthography)</label>
+                    <input type="text" class="form-input" id="transcription" placeholder="e.g., pe, -iatu, hin" value="\${map.transcription || ''}" onchange="saveField('transcription', this.value)">
+                </div>
+                <div class="form-group">
+                    <div class="section-label">Category</div>
+                    <div class="category-grid">
+                        <button class="category-btn morpheme \${map.category==='morpheme'?'selected':''}" onclick="saveField('category','morpheme')">
+                            <div class="category-icon">✓</div><div>Morpheme</div>
+                        </button>
+                        <button class="category-btn syllable \${map.category==='syllable'?'selected':''}" onclick="saveField('category','syllable')">
+                            <div class="category-icon">◐</div><div>Syllable</div>
+                        </button>
+                        <button class="category-btn noise \${map.category==='noise'?'selected':''}" onclick="saveField('category','noise')">
+                            <div class="category-icon">✗</div><div>Noise/Silence</div>
+                        </button>
+                        <button class="category-btn unclear \${map.category==='unclear'?'selected':''}" onclick="saveField('category','unclear')">
+                            <div class="category-icon">?</div><div>Unclear</div>
+                        </button>
+                    </div>
+                    <div class="keyboard-hint"><kbd>1</kbd> Morpheme <kbd>2</kbd> Syllable <kbd>3</kbd> Noise <kbd>4</kbd> Unclear</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Gloss / Meaning</label>
+                    <input type="text" class="form-input" id="gloss" placeholder="e.g., locative 'in, on, at'" value="\${map.gloss || ''}" onchange="saveField('gloss', this.value)">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-input" id="notes" placeholder="Any observations..." onchange="saveField('notes', this.value)">\${map.notes || ''}</textarea>
+                </div>
+                <div class="action-bar">
+                    <button class="btn btn-primary" onclick="saveAndNext()">Save & Next →</button>
+                    <button class="btn btn-secondary" onclick="navigate(-1)" \${i===0?'disabled':''}>← Prev</button>
+                    <button class="btn btn-secondary" onclick="navigate(1)" \${i===motifs.length-1?'disabled':''}>Next →</button>
+                </div>
+                <div class="keyboard-hint" style="text-align:center;margin-top:0.5rem;"><kbd>←</kbd><kbd>→</kbd> Navigate <kbd>Space</kbd> Play <kbd>Enter</kbd> Save & Next</div>
+            \`;
+            renderList();
+        }
+        
+        function playAudio(file, idx) {
+            if (currentAudio) { currentAudio.pause(); document.querySelectorAll('.audio-btn').forEach(b => b.classList.remove('playing')); }
+            currentAudio = new Audio('motif_samples/' + file);
+            document.getElementById('audio' + idx).classList.add('playing');
+            currentAudio.onended = () => document.getElementById('audio' + idx).classList.remove('playing');
+            currentAudio.play();
+        }
+        
+        function saveField(field, value) {
+            const m = motifs[currentIndex];
+            if (!mappings[m.id]) mappings[m.id] = {};
+            mappings[m.id][field] = value;
+            localStorage.setItem('soundscript_mappings_v2', JSON.stringify(mappings));
+            updateStats();
+            if (field === 'category') selectMotif(currentIndex);
+            else renderList();
+        }
+        
+        function saveAndNext() {
+            if (currentIndex < motifs.length - 1) selectMotif(currentIndex + 1);
+        }
+        
+        function navigate(dir) {
+            const next = currentIndex + dir;
+            if (next >= 0 && next < motifs.length) selectMotif(next);
+        }
+        
+        function handleKeys(e) {
+            if (currentIndex < 0) return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+                if (e.key === 'Enter') { e.preventDefault(); saveAndNext(); }
+                return;
+            }
+            if (e.key === 'ArrowLeft') navigate(-1);
+            if (e.key === 'ArrowRight') navigate(1);
+            if (e.key === ' ') { e.preventDefault(); const m = motifs[currentIndex]; if (m.samples[0]) playAudio(m.samples[0], 0); }
+            if (e.key === 'Enter') saveAndNext();
+            if (e.key === '1') saveField('category', 'morpheme');
+            if (e.key === '2') saveField('category', 'syllable');
+            if (e.key === '3') saveField('category', 'noise');
+            if (e.key === '4') saveField('category', 'unclear');
+        }
+        
+        function updateStats() {
+            const stats = {morpheme:0, syllable:0, noise:0, unclear:0, pending:0};
+            motifs.forEach(m => {
+                const cat = mappings[m.id]?.category || 'pending';
+                stats[cat]++;
+            });
+            document.getElementById('statMorpheme').textContent = stats.morpheme;
+            document.getElementById('statSyllable').textContent = stats.syllable;
+            document.getElementById('statNoise').textContent = stats.noise;
+            document.getElementById('statUnclear').textContent = stats.unclear;
+            document.getElementById('statPending').textContent = stats.pending;
+            document.getElementById('progressFill').style.width = ((100 - stats.pending) / 100 * 100) + '%';
+        }
+        
+        function exportJson() {
+            const data = { language: 'Sateré-Mawé', exported: new Date().toISOString(), mappings: Object.entries(mappings).map(([id, m]) => ({motifId: parseInt(id), ...m})) };
+            download(JSON.stringify(data, null, 2), 'soundscript_mapping.json', 'application/json');
+        }
+        
+        function exportCsv() {
+            const rows = ['motif_id,symbol,transcription,category,gloss,notes'];
+            motifs.forEach(m => {
+                const map = mappings[m.id] || {};
+                rows.push([m.id, m.symbol, \`"\${map.transcription||''}"\`, map.category||'', \`"\${map.gloss||''}"\`, \`"\${(map.notes||'').replace(/"/g,'""')}"\`].join(','));
+            });
+            download(rows.join('\n'), 'soundscript_mapping.csv', 'text/csv');
+        }
+        
+        function exportSummary() {
+            const stats = {morpheme:[], syllable:[], noise:[], unclear:[]};
+            motifs.forEach(m => { const cat = mappings[m.id]?.category; if (cat) stats[cat].push({...m, ...mappings[m.id]}); });
+            let txt = \`SOUNDSCRIPT MAPPING SUMMARY\nLanguage: Sateré-Mawé\nDate: \${new Date().toLocaleDateString()}\n\n\`;
+            txt += \`MORPHEMES (\${stats.morpheme.length})\n\${'='.repeat(40)}\n\${stats.morpheme.map(m => \`\${m.symbol}: \${m.transcription || '?'} — \${m.gloss || 'no gloss'}\`).join('\n')||'None'}\n\n\`;
+            txt += \`SYLLABLES (\${stats.syllable.length})\n\${'='.repeat(40)}\n\${stats.syllable.map(m => \`\${m.symbol}: \${m.transcription || '?'}\`).join('\n')||'None'}\n\n\`;
+            txt += \`NOISE (\${stats.noise.length})\n\${'='.repeat(40)}\n\${stats.noise.map(m => m.symbol).join(', ')||'None'}\n\`;
+            download(txt, 'soundscript_summary.txt', 'text/plain');
+        }
+        
+        function download(content, filename, type) {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([content], {type}));
+            a.download = filename;
+            a.click();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
